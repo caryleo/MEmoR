@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../../../data_SSD1/hliu/data_MEmoR"
+		}
+	],
+	"settings": {
+		"python.pythonPath": "/home/mmc_hliu/anaconda3/envs/EmoRC/bin/python",
+		"jupyter.jupyterServerType": "remote",
+		"liveServer.settings.multiRootWorkspaceName": "MEmoR"
+	}
+}

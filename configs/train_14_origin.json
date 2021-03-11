@@ -1,9 +1,9 @@
 {
-    "name": "Test_9",
+    "name": "Train_14_origin",
     "message":"MEmoR Baseline",
     "anno_file": "data/anno.json",
     "data_file": "data/data.json",
-    "id_file": "data/test_id.txt",
+    "id_file": "data/train_id.txt",
     "emo_type": "fine_grained",
     "speakers": ["sheldon", "leonard", "howard", "rajesh", "penny", "bernadette", "amy", "others"],
     "audio": {
@@ -35,8 +35,8 @@
         "type": "MEmoRDataLoader",
         "args":{
             "batch_size": 8,
-            "shuffle": false,
-            "validation_split": 0.0,
+            "shuffle": true,
+            "validation_split": 0.2,
             "num_workers": 2,
             "seed": 2020
         }
@@ -47,11 +47,38 @@
             "D_e": 128
         }
     },
+    "optimizer": {
+        "type": "Adam",
+        "args":{
+            "lr": 5e-5,
+            "weight_decay": 0,
+            "amsgrad": true
+        }
+    },
     "loss": "nll_loss",
     "metrics": [
         "accuracy",
         "macro_f1",
         "weighted_f1"
-    ]
+    ],
+    "lr_scheduler": {
+        "type": "StepLR",
+        "args": {
+            "step_size": 50,
+            "gamma": 0.9
+        }
+    },
+    "trainer": {
+        "type": "MEmoRTrainer",
+        "epochs": 1000,
 
+        "save_dir": "saved/",
+        "save_period": 50,
+        "verbosity": 2,
+        
+        "monitor": "max val_accuracy",
+        "early_stop": 50,
+
+        "tensorboard": true
+    }
 }
