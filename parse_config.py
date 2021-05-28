@@ -23,6 +23,7 @@ class ConfigParser:
         self._config = _update_config(config, modification)
         self.resume = resume
 
+        self.val_file = False# True if 'val_id_file' in config else False
         # set save_dir where trained model and log will be saved.
         save_dir = Path(self.config['trainer']['save_dir'])
 

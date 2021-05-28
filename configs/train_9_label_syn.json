@@ -1,9 +1,10 @@
 {
-    "name": "Train_9_origin",
+    "name": "Train_9_label_syn",
     "message":"MEmoR Baseline",
     "anno_file": "data/anno.json",
     "data_file": "data/data.json",
     "id_file": "data/train_id.txt",
+    "val_id_file": "data/test_id.txt",
     "emo_type": "primary",
     "speakers": ["sheldon", "leonard", "howard", "rajesh", "penny", "bernadette", "amy", "others"],
     "audio": {

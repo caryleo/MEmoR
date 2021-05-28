@@ -16,16 +16,20 @@ class MEmoRDataset(data.Dataset):
         super().__init__()
         self.config = config
         annos = read_json(config['anno_file'])[config['emo_type']]
-        # ids = []
-        # tmp_annos = []
-        # with open(config['id_file']) as fin:
-        #     for line in fin.readlines():
-        #         ids.append(int(line.strip()))
+
+        # 作者将这部分代码注释掉了，就是用是否只用训练数据集进行训练
+        # 在train_test模式下，所有的数据都应该预先处理
+        ids = []
+        tmp_annos = []
+        with open(config['id_file']) as fin:
+            for line in fin.readlines():
+                ids.append(int(line.strip()))
         
-        # for jj, anno in enumerate(annos):
-        #     if jj in ids:
-        #         tmp_annos.append(anno)
-        # annos = tmp_annos
+        for jj, anno in enumerate(annos):
+            if jj in ids:
+                tmp_annos.append(anno)
+        annos = tmp_annos
+        ##################################################
             
         emo_num = 9 if config['emo_type'] == 'primary' else 14
         self.emotion_classes = EMOTIONS[:emo_num]
@@ -46,7 +50,7 @@ class MEmoRDataset(data.Dataset):
         self.personality_list = pfe.get_features()
         self.personality_features = []
         
-
+        print('Processing Samples...')
         for jj, anno in enumerate(tqdm(annos)):
             clip = anno['clip']
             target_character = anno['character']
@@ -125,6 +129,18 @@ class MEmoRDataLoader(BaseDataLoader):
         self.seed = data_loader_config['seed']
         self.dataset = MEmoRDataset(config)
         self.emotion_nums = self.dataset.statistics()
+        ## 修改：将验证集强制为指定文件
+        self.val_file = False
+        if config.val_file:
+            self.val_file = True
+            print('Caution! Loading', config['val_id_file'], 'as validation set')
+            test_list = list()
+            with open(config['val_id_file']) as val_file:
+                for line in val_file.readlines():
+                    test_list.append(int(line))
+            self.valid_idx = np.array(test_list)
+        #######################################
+
         super().__init__(self.dataset, data_loader_config['batch_size'], data_loader_config['shuffle'], data_loader_config['validation_split'], data_loader_config['num_workers'], collate_fn=self.dataset.collate_fn)
 
     def _split_sampler(self, split):
@@ -143,8 +159,15 @@ class MEmoRDataLoader(BaseDataLoader):
         else:
             len_valid = int(self.n_samples * split)
 
-        valid_idx = idx_full[0:len_valid]
-        train_idx = np.delete(idx_full, np.arange(0, len_valid))
+        ##################
+        if self.val_file:
+            valid_idx = self.valid_idx
+            train_idx = np.array([idx for idx in idx_full if idx not in valid_idx])
+        else:
+            valid_idx = idx_full[0:len_valid]
+            train_idx = np.delete(idx_full, np.arange(0, len_valid))
+
+        #######################
         weights_per_class = 1. / torch.tensor(self.emotion_nums, dtype=torch.float)
         weights = [0] * self.n_samples
         for idx in range(self.n_samples):

@@ -98,10 +98,11 @@ class BaseTrainer:
                 else:
                     not_improved_count += 1
 
-                if not_improved_count > self.early_stop:
-                    self.logger.info("Validation performance didn\'t improve for {} epochs. "
-                                     "Training stops.".format(self.early_stop))
-                    break
+                # 自己的修改，不让他提前停止
+                # if not_improved_count > self.early_stop:
+                #     self.logger.info("Validation performance didn\'t improve for {} epochs. "
+                #                      "Training stops.".format(self.early_stop))
+                #     break
 
                 self.logger.info("Current best {}: {} at epoch {}, dir: {}".format(self.mnt_metric, self.mnt_best, best_epoch, self.config.run_id))
 

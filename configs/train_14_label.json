@@ -1,5 +1,5 @@
 {
-    "name": "Train_14_origin",
+    "name": "Train_14_label",
     "message":"MEmoR Baseline",
     "anno_file": "data/anno.json",
     "data_file": "data/data.json",

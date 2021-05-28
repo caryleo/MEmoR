@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../../../../data_SSD1/hliu/data_MEmoR"
+		},
+		{
+			"path": "../video-classification-3d-cnn-pytorch"
 		}
 	],
 	"settings": {

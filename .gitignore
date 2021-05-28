@@ -111,3 +111,6 @@ datasets/
 .idea/
 __MACOSX/
 data
+saved
+.vector_cache/
+jupyter.log

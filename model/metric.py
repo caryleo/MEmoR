@@ -5,6 +5,12 @@ def mse(output, target):
     with torch.no_grad():
         return metrics.mean_squared_error(list(target.cpu().numpy()), list(output.cpu().numpy()))
 
+def micro_f1(output, target):
+    with torch.no_grad():
+        pred = torch.argmax(output, dim=1)
+        assert pred.shape[0] == len(target)
+        return metrics.f1_score(list(target.cpu().numpy()), list(pred.cpu().numpy()), average='micro')
+
 def macro_f1(output, target):
     with torch.no_grad():
         pred = torch.argmax(output, dim=1)
