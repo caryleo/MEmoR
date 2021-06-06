@@ -25,6 +25,13 @@ def main(config):
     # build model architecture, then print to console
     model = create_model(config)
 
+    ##############
+    # 要在这里调整图注意力，不然进去之后封装就会变得复杂
+    model.g_att_v.init_params(data_loader.edge_matrix_v, data_loader.affectiveness_v, data_loader.embedding_concept_v)
+    model.g_att_a.init_params(data_loader.edge_matrix_a, data_loader.affectiveness_a, data_loader.embedding_concept_a)
+    model.g_att_t.init_params(data_loader.edge_matrix_t, data_loader.affectiveness_t, data_loader.embedding_concept_t)
+    ##############
+
     # get function handles of loss and metrics
     criterion = getattr(module_loss, config['loss'])
     metrics = [getattr(module_metric, met) for met in config['metrics']]

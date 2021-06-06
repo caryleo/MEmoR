@@ -10,73 +10,38 @@ import spacy
 from spacy.lang.en.stop_words import STOP_WORDS as spacy_stopwords
 
 
-DD_label_to_emotions = {0: "neutral", 1: "anger", 2: "disgust", 3: "fear", 4: "happiness", 5: "sadness", 6: "surprise"}
-IEMOCAP_emotions_to_label = {'hap':0, 'sad':1, 'neu':2, 'ang':3, 'exc':4, 'fru':5}
-IEMOCAP_label_to_emotions = {0: 'hap', 1: 'sad', 2: 'neu', 3: 'ang', 4: 'exc', 5: 'fru'}
+emotions_audio = ['neutral', 'calm', 'happy', 'sad', 'angry', 'fearful']
+expressions_face = ['angry', 'disgust', 'fear', 'happy', 'sad', 'surprise', 'neutral']
+
 nltk_stopwords = stopwords.words('english')
 # spacy_stopwords = spacy.lang.en.stop_words.STOP_WORDS # older version of spacy
 stopwords = set(nltk_stopwords).union(spacy_stopwords)
 porter = PorterStemmer()
 
 class Vocab(object):
-    def __init__(self, examples, min_freq, max_vocab_size):
-        """
-            examples: a list of examples, each example is a list of (utter, speaker, emotion, mask), followed by an emotion label
-            min_freq: the min frequency of word in the vocabulary
-            max_vocab_size: max vocabulary size
+    def __init__(self, config, modal):
 
-            return: a Vocab object
-        """
-        self.min_freq = min_freq
-        self.max_vocab_size = max_vocab_size
-        
-        self.word2id = {"<pad>": 0, "<unk>": 1}
-        self.id2word = {0: "<pad>", 1: "<unk>"}
-        self.speaker2id = {}
-        self.emotion2id = {}
+        self.word2id = {"<unk>"}
+        self.id2word = {0: "<unk>"}
 
         self.word_freq_dist = Counter()
-        self.speaker_freq_dist = Counter()
-        self.emotion_freq_dist = Counter()
-        
-        utterance_lengths = []
-        conversation_lengths = []
 
         for ex in examples:
             conv_length = sum([utter[-1] for utter in ex])
-            conversation_lengths.append(conv_length)
             for utter, speaker, emotion, mask in ex:
                 if mask == 1:
                     self.word_freq_dist.update(utter)
                     self.speaker_freq_dist.update([speaker])
                     self.emotion_freq_dist.update([emotion])
-                    utterance_lengths.append(len(utter))
 
         # filter by min_freq
-        words = [(w,cnt) for w, cnt in self.word_freq_dist.items() if cnt >= min_freq]
         words = sorted(words, key=lambda x: x[1], reverse=True)
-
-        # cap vocab size
-        words = words[:max_vocab_size]
 
         # build word2id and id2word
         for idx, (w, cnt) in enumerate(words):
             self.word2id[w] = idx+2
             self.id2word[idx+2] = w
 
-        # build speaker to id
-        speakers = sorted(self.speaker_freq_dist.items(), key=lambda x: x[1], reverse=True)
-        for idx, (speaker, cnt) in enumerate(speakers):
-            self.speaker2id[speaker] = idx
-
-        # build emotion to id
-        emotions = sorted(self.emotion_freq_dist.items(), key=lambda x: x[1], reverse=True)
-        for idx, (emotion, cnt) in enumerate(emotions):
-            self.emotion2id[emotion] = idx
-        
-        self.max_conversation_length = max(conversation_lengths)
-        self.max_sequence_length = max(utterance_lengths)
-        self.num_utterances = len(utterance_lengths)
         
 
 def convert_examples_to_ids(examples, vocab):

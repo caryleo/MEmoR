@@ -33,13 +33,23 @@ class MEmoRTrainer(BaseTrainer):
         """
         self.model.train()
         self.train_metrics.reset()
-        for batch_idx, data in enumerate(self.data_loader):          
-            target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, target_loc, umask, seg_len, n_c = [d.to(self.device) for d in data]
+        for batch_idx, data in enumerate(self.data_loader): 
+            ###########################
+            # 这里的接口也调整一下         
+            target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, vmask, amask, tmask, target_loc, umask, seg_len, n_c = [d.to(self.device) for d in data]
+            ###########################
             
             self.optimizer.zero_grad()
+            # 这里计算的是各个序列的长度
             seq_lengths = [(umask[j] == 1).nonzero().tolist()[-1][0] + 1 for j in range(len(umask))]
+            concept_lengths_v = [(vmask[j] == 1).nonzero().tolist()[-1][0] + 1 for j in range(len(vmask))]
+            concept_lengths_a = [(vmask[j] == 1).nonzero().tolist()[-1][0] + 1 for j in range(len(amask))]
+            concept_lengths_t = [(vmask[j] == 1).nonzero().tolist()[-1][0] + 1 for j in range(len(tmask))]
             
-            output = self.model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, seq_lengths, target_loc, seg_len, n_c)
+            ###########################
+            # 这里的接口也调整一下
+            output = self.model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, concept_lengths_v, concept_lengths_a, concept_lengths_t, target_loc, seq_lengths, seg_len, n_c)
+            ###########################
             assert output.shape[0] == target.shape[0]
             target = target.squeeze(1)
             loss = self.criterion(output, target)
@@ -84,10 +94,18 @@ class MEmoRTrainer(BaseTrainer):
         outputs, targets= [], []
         with torch.no_grad():
             for batch_idx, data in enumerate(self.valid_data_loader):
-                target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, target_loc, umask, seg_len, n_c = [d.to(self.device) for d in data]
+                ###########################
+                # 这里的接口也调整一下
+                target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, target_loc, umask, seg_len, n_c = [d.to(self.device) for d in data]
+                ###########################
+
+                # 这里计算的是各个序列的长度
                 seq_lengths = [(umask[j] == 1).nonzero().tolist()[-1][0] + 1 for j in range(len(umask))]
             
-                output = self.model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, seq_lengths, target_loc, seg_len, n_c)
+                ###########################
+                # 这里的接口也调整一下
+                output = self.model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, target_loc, seq_lengths, seg_len, n_c)
+                ###########################
                 target = target.squeeze(1)
                 loss = self.criterion(output, target)
                 

@@ -2,16 +2,10 @@
 	"folders": [
 		{
 			"path": "."
-		},
-		{
-			"path": "../../../../data_SSD1/hliu/data_MEmoR"
-		},
-		{
-			"path": "../video-classification-3d-cnn-pytorch"
 		}
 	],
 	"settings": {
-		"python.pythonPath": "/home/mmc_hliu/anaconda3/envs/EmoRC/bin/python",
+		"python.pythonPath": "/data/mmc_hliu/anaconda3/envs/EmoRC/bin/python",
 		"jupyter.jupyterServerType": "remote",
 		"liveServer.settings.multiRootWorkspaceName": "MEmoR"
 	}
