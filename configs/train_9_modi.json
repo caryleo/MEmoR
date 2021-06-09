@@ -38,10 +38,10 @@
         "feature_dim": 118
     },
     "knowledge": {
-        "embedding_file": "embedding/glove.840B.300d.magnitude",
+        "embedding_file": "data/embedding/glove.840B.300d.magnitude",
         "embedding_dim": 300,
-        "conceptnet_file": "kb/conceptnet_base.pkl",
-        "affectiveness_file": "kb/NRC_base.pkl",
+        "conceptnet_file": "data/kb/conceptnet_base.pkl",
+        "affectiveness_file": "data/kb/NRC_base.pkl",
         "kb_percentage": 1.0
         
     },

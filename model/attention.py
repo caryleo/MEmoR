@@ -25,16 +25,16 @@ class ScaledDotProductAttention(nn.Module):
 
 
 class GraphAttention(nn.Module):
-    def __init__(self, vocab_size, embed_size, GAW=-1, concentration_factor=1):
+    def __init__(self, vocab_size, embed_size, config):
         super(GraphAttention, self).__init__()
         self.vocab_size = vocab_size
         self.embed_size = embed_size
         self.concept_embed = nn.Embedding(vocab_size, embed_size)
-        self.GAW = GAW if GAW >= 0 else None
-        self.concentration_factor = concentration_factor
+        self.GAW = config["model"]["args"]["graph_attention_weight"] if config["model"]["args"]["graph_attention_weight"] >= 0 else None
+        self.concentration_factor = config["model"]["args"]["concentrator_factor"]
         ####################
-        self.attn_concept = ScaledDotProductAttention((2 * self.embed_size) ** 0.5, attn_dropout=0)
-        self.embed = nn.Embedding(vocab_size, embed_size)
+        # self.attn_concept = ScaledDotProductAttention((2 * self.embed_size) ** 0.5, attn_dropout=0)
+        self.embed = nn.Embedding(vocab_size, config["knowledge"]["embedding_dim"])
         ####################
 
     def init_params(self, edge_matrix=None, affectiveness=None, embedding_concept=None):
@@ -52,56 +52,45 @@ class GraphAttention(nn.Module):
         self.embed.weight.data.copy_(torch.from_numpy(embedding_concept))
 
 
-    def get_hierarchical_sentence_representation(self, sent_embed):
-        # sent_embed: (batch_size, seq_len, d_model)
-        seq_len = sent_embed.shape[1]
-        N = 3 # n-gram hierarchical pooling
-        
-        # max pooling for each ngram
-        ngram_embeddings = [[] for i in range(N-1)] # one list for each n
-        for n in range(1, N):
-            for i in range(seq_len):
-                ngram_embeddings[n-1].append(sent_embed[:,i:i+n+1,:].max(dim=1)[0])
-        
-        # mean pooling across ngram embeddings
-        pooled_ngram_embeddings = [sent_embed.mean(dim=1)] # unigram
-        for ngram_embedding in ngram_embeddings:
-            ngram_embedding = torch.stack(ngram_embedding, dim=1).mean(dim=1)
-            pooled_ngram_embeddings.append(ngram_embedding)
+    def get_context_representation(self, concepts_embed, concepts_length): 
+        # 将每一个上下文表示，包括当前本身，编码成一个上下文表示
+        # 对于一组概念，暂时使用取平均的方式
+        # 输入尺寸为seqlen, padlen, embed_size和seqlen
+        # 预期输出尺寸为dim_representation
 
-        sent_embed = torch.stack(pooled_ngram_embeddings, dim=1).mean(dim=1)
-        return sent_embed
+        context_rep_final = list()
+        for i in range(concepts_embed.size(0)):
+            context_rep_final.append(concepts_embed[i, :concepts_length[i]].mean(dim=0)) # embed_size
 
-    def get_context_representation(self, src_embed, tgt_embed): 
-        # src_embed: (batch_size, context_length*seq_len, d_model)
-        # tgt_embed: (batch_size, seq_len, d_model)
-        seq_len = tgt_embed.shape[1]
-        context_length = src_embed.shape[1]//seq_len
-        sentence_representations = []
-        for i in range(context_length):
-            sentence_representations.append(self.get_hierarchical_sentence_representation(src_embed[:, i*seq_len:(i+1)*seq_len]))
-        sentence_representations.append(self.get_hierarchical_sentence_representation(tgt_embed))
-        context_representation = torch.stack(sentence_representations, dim=1).mean(dim=1) # (batch_size, d_model)
+        context_representation = torch.stack(context_rep_final, dim=0).mean(dim=0) # dim
+
         return context_representation
 
-    def forward(self, src, src_embed, tgt, tgt_embed):
-        # src: (batch_size, context_length * seq_len)
-        # src_embed: (batch_size, context_length*seq_len, d_model)
-        # tgt: (batch_size, seq_len)
-        # tgt_embed: (batch_size, seq_len, d_model)
-        # embed: shared embedding layer: (vocab_size, d_model)
+    def forward(self, concepts_list, concepts_length):
+        # 处理权重，范围一个等长度的seqlen, dim_representation的知识
+        # 输入尺寸seqlen, padlen和seqlen
 
+        concepts_embed = self.embed(concepts_list) # seqlen, pad_len, embed_size
         # get context representation
-        context_representation = self.get_context_representation(src_embed, tgt_embed) # (batch_size, d_model)
+        context_representation = self.get_context_representation(concepts_embed, concepts_length) # embed_size
+        
         # get concept embedding
-        src_len = src.shape[1]
-        src = torch.cat([src, tgt], dim=1)
-        cosine_similarity = torch.abs(torch.cosine_similarity(context_representation.unsqueeze(1), \
-            self.concept_embed.weight.unsqueeze(0), dim=2)) # (batch_size, vocab_size)
-        relatedness = self.edge_matrix[src] * cosine_similarity.unsqueeze(1) # (batch_size, (context_length+1)*seq_len, vocab_size)
-        concept_weights = self._lambda*relatedness + (1-self._lambda)*(self.edge_matrix[src] > 0).float()*self.affectiveness # (batch_size, (context_length+1)*seq_len, vocab_size)
-        concept_embedding = torch.matmul(torch.softmax(concept_weights * self.concentration_factor, dim=2), self.concept_embed.weight) # (batch_size, (context_length+1)*seq_len, d_model)
-        return concept_embedding[:, :src_len, :], concept_embedding[:, src_len:, :]
+        cosine_similarity = torch.abs(torch.cosine_similarity(context_representation.unsqueeze(0), \
+            self.concept_embed.weight, dim=2)) # (vocab_size)
 
+        # seqlen, padlen, vocab_size
+        rel = self.edge_matrix[concepts_list] * cosine_similarity # seqlen, padlen, vocab_size
+        aff = (self.edge_matrix[concepts_list] > 0).float() * self.affectiveness # seqlen, padlen, vocab_size
+        concepts_weights = self._lambda * rel + (1 - self._lambda) * aff # seqlen, padlen, vocab_size
+        concepts_embedding = torch.matmul(torch.softmax(concepts_weights * self.concentration_factor, dim=2), self.concept_embed.weight) # seqlen, padlen, dim_representation
+        
+        # 因为每一个片段只有一个特征，因此直接恢复回去，暂时不区分是否有效
+        concepts_embedding_final = list()
+        for i in range(concepts_list.size(0)):
+            # 整合方法为平均
+            concepts_embedding_final.append(concepts_embedding[i, :concepts_length[i]].mean(dim=0)) # dim_representation
+
+        concepts_embedding = torch.stack(concepts_embedding_final, dim=0) # seqlen, dim_representation
+        return concepts_embedding
     
 

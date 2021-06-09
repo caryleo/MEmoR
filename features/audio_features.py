@@ -1,5 +1,5 @@
 import torch
-from utils.util import read_json
+from utils.util import read_json, convert_examples_to_ids
 from base import BaseFeatureExtractor
 
 class AudioFeatureExtractor(BaseFeatureExtractor):
@@ -13,6 +13,7 @@ class AudioFeatureExtractor(BaseFeatureExtractor):
         ########
         # 音频概念的部分
         self.concepts = read_json(config["audio"]['concepts_file'])
+        self.concepts2id = None
         ########
         self.missing_tensor = torch.zeros((self.feature_dim))
 
@@ -43,7 +44,7 @@ class AudioFeatureExtractor(BaseFeatureExtractor):
                     ret.append(self.missing_tensor)
                     ret_valid.append(0)
 
-            ret_concepts.append(self.concepts[index] if index in self.features else []) # seqlen
+            ret_concepts.append(torch.LongTensor(convert_examples_to_ids(self.concepts[index] if index in self.concepts else [], self.concepts2id)) ) # seqlen
 
         # for character in on_characters:
         #     for ii, speaker in enumerate(speakers):

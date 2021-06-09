@@ -1,5 +1,5 @@
 import torch
-from utils import read_json
+from utils import read_json, convert_examples_to_ids
 from base import BaseFeatureExtractor
 
 
@@ -13,6 +13,7 @@ class TextFeatureExtractor(BaseFeatureExtractor):
         self.data = read_json(config["data_file"])
         ########
         self.concepts = read_json(config["text"]['concepts_file'])
+        self.concepts2id = None
         ########
         self.missing_tensor = torch.zeros((self.feature_dim))
 
@@ -40,7 +41,7 @@ class TextFeatureExtractor(BaseFeatureExtractor):
                     ret.append(self.missing_tensor)
                     ret_valid.append(0)
 
-            ret_concepts.append(self.concepts[index] if index in self.features else []) # seqlen
+            ret_concepts.append(torch.LongTensor(convert_examples_to_ids(self.concepts[index_concept] if index_concept in self.concepts else [], self.concepts2id)) ) # seqlen
 
         # for character in on_characters:
         #     for ii, speaker in enumerate(speakers):

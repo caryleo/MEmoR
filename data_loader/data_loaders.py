@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from features import AudioFeatureExtractor, TextFeatureExtractor, VisualFeatureExtractor, PersonalityFeatureExtractor
+from pymagnitude import Magnitude
 
 EMOTIONS = ["neutral","joy","anger","disgust","sadness","surprise","fear","anticipation","trust","serenity","interest","annoyance","boredom","distraction"]
 
@@ -42,6 +43,7 @@ class MEmoRDataset(data.Dataset):
         ################################
         # 用来保存概念，用来后面准备加知识图
         self.visual_concepts, self.audio_concepts, self.text_concepts = list(), list(), list()
+        self.visual_concepts_lengths, self.audio_concepts_lengths, self.text_concepts_lengths = list(), list(), list()
         ################################
 
         self.labels = []
@@ -63,6 +65,12 @@ class MEmoRDataset(data.Dataset):
         self.concept2id_a, self.id2concept_a = build_vocab(config, 'audio')
         self.concept2id_t, self.id2concept_t = build_vocab(config, 'text')
 
+        vfe.concepts2id = self.concept2id_v
+        afe.concepts2id = self.concept2id_a
+        tfe.concepts2id = self.concept2id_t
+
+        # print(afe.concepts2id)
+
         config["visual"]["concept_size"] = len(self.concept2id_v)
         config["audio"]["concept_size"] = len(self.concept2id_a)
         config["text"]["concept_size"] = len(self.concept2id_t)
@@ -70,13 +78,14 @@ class MEmoRDataset(data.Dataset):
 
         ###################################
         print("Processing Knowledge") 
-        self.embedding_concept_v = get_concept_embedding(self.concept2id_v, config)
-        self.embedding_concept_a = get_concept_embedding(self.concept2id_a, config)
-        self.embedding_concept_t = get_concept_embedding(self.concept2id_t, config)
+        vectors = Magnitude(config["knowledge"]["embedding_file"])
+        self.embedding_concept_v = get_concept_embedding(self.concept2id_v, config, vectors)
+        self.embedding_concept_a = get_concept_embedding(self.concept2id_a, config, vectors)
+        self.embedding_concept_t = get_concept_embedding(self.concept2id_t, config, vectors)
 
-        self.edge_matrix_v, self.affectiveness_v = build_kb(self.concept2id_v, config)
-        self.edge_matrix_a, self.affectiveness_a = build_kb(self.concept2id_a, config)
-        self.edge_matrix_t, self.affectiveness_t = build_kb(self.concept2id_t, config)
+        self.edge_matrix_v, self.affectiveness_v = build_kb(self.concept2id_v, config, "visual")
+        self.edge_matrix_a, self.affectiveness_a = build_kb(self.concept2id_a, config, "audio")
+        self.edge_matrix_t, self.affectiveness_t = build_kb(self.concept2id_t, config, "text")
         ###################################
         
         print('Processing Samples...')
@@ -134,12 +143,40 @@ class MEmoRDataset(data.Dataset):
 
             #######################################################
             # 对应的保存，按照样本对应
-            self.visual_concepts.append(torch.LongTensor(convert_examples_to_ids(vc, self.concept2id_v))) # num_anno, seqlen * n_c, dim_features_v
-            self.audio_concepts.append(torch.LongTensor(convert_examples_to_ids(ac, self.concept2id_a))) # num_anno, seqlen * n_c, dim_features_a
-            self.text_concepts.append(torch.LongTensor(convert_examples_to_ids(tc, self.concept2id_t))) # num_anno, seqlen * n_c, dim_features_t
+            lengths = list()
+            vc_new = list()
+            for concepts in vc:
+                new = torch.zeros(512, dtype=torch.long)
+                lengths.append(concepts.size(0))
+                new[:concepts.size(0)] = concepts[:]
+                vc_new.append(new)
+            self.visual_concepts_lengths.append(torch.tensor(lengths, dtype=torch.int8)) # num_anno, seqlen
+
+            ac_new = list()
+            lengths = list()
+            for concepts in ac:
+                # print(concepts)
+                new = torch.zeros(512, dtype=torch.long) # max_num_concept
+                lengths.append(concepts.size(0))
+                new[:concepts.size(0)] = concepts[:]
+                ac_new.append(new)
+            self.audio_concepts_lengths.append(torch.tensor(lengths, dtype=torch.int8)) # num_anno, seqlen
+
+            tc_new = list()
+            lengths = list()
+            for concepts in tc:
+                new = torch.zeros(512, dtype=torch.long)
+                lengths.append(concepts.size(0))
+                new[:concepts.size(0)] = concepts[:]
+                tc_new.append(new)
+            self.text_concepts_lengths.append(torch.tensor(lengths, dtype=torch.int8)) # num_anno, seqlen
+
+            self.visual_concepts.append(torch.stack(vc_new, dim=0)) # num_anno, seqlen, max_num_concept
+            self.audio_concepts.append(torch.stack(ac_new, dim=0)) # num_anno, seqlen, max_num_concept
+            self.text_concepts.append(torch.stack(tc_new, dim=0)) # num_anno, seqlen, max_num_concept
             #######################################################
 
-            self.labels.append(self.emotiofgn_classes.index(anno['emotion']))            
+            self.labels.append(self.emotion_classes.index(anno['emotion']))            
         
 
     def __getitem__(self, index):
@@ -156,9 +193,9 @@ class MEmoRDataset(data.Dataset):
             self.visual_concepts[index],\
             self.audio_concepts[index],\
             self.text_concepts[index],\
-            torch.tensor([1] * len(self.visual_concepts[index]), dtype=torch.int8),\
-            torch.tensor([1] * len(self.audio_concepts[index]), dtype=torch.int8),\
-            torch.tensor([1] * len(self.text_concepts[index]), dtype=torch.int8),\
+            self.visual_concepts_lengths[index],\
+            self.audio_concepts_lengths[index],\
+            self.text_concepts_lengths[index],\
             self.target_loc[index], \
             torch.tensor([1] * len(self.time_seq[index]), dtype=torch.int8), \
             torch.tensor([self.seg_len[index]], dtype=torch.int8), \

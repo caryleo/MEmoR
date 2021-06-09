@@ -151,14 +151,13 @@ class AMER_Modi(BaseModel):
         #########################
         
         self.attn = ScaledDotProductAttention((4 * D_e) ** 0.5, attn_dropout=0)
-        
 
         #################
         # GraphAttention初始化，暂时三个模态分开
         # 这里和模型的编码长度统一成256
-        self.g_att_v = GraphAttention(config["visual"]["concept_size"], 2 * D_e, config["model"]["args"]["graph_attention_weight"], config["model"]["args"]["concentrator_factor"])
-        self.g_att_a = GraphAttention(config["audio"]["concept_size"], 2 * D_e, config["model"]["args"]["graph_attention_weight"], config["model"]["args"]["concentrator_factor"])
-        self.g_att_t = GraphAttention(config["text"]["concept_size"], 2 * D_e, config["model"]["args"]["graph_attention_weight"], config["model"]["args"]["concentrator_factor"])
+        self.g_att_v = GraphAttention(config["visual"]["concept_size"], 2 * D_e, config)
+        self.g_att_a = GraphAttention(config["audio"]["concept_size"], 2 * D_e, config)
+        self.g_att_t = GraphAttention(config["text"]["concept_size"], 2 * D_e, config)
         #################
 
         self.enc_v = nn.Sequential(
@@ -200,7 +199,7 @@ class AMER_Modi(BaseModel):
 
     def forward(self, U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, concept_lengths_v, concept_lengths_a, concept_lengths_t, target_loc, seq_lengths, seg_len, n_c):
         # Encoders
-        V_e, A_e, T_e, P_e = self.enc_v(U_v), self.enc_a(U_a), self.enc_t(U_t), self.enc_p(U_p) # batch, n_c * seq_len, dim_feature
+        V_e, A_e, T_e, P_e = self.enc_v(U_v), self.enc_a(U_a), self.enc_t(U_t), self.enc_p(U_p) # batch, seq_len * n_c, dim_feature
 
         U_all = []
 
@@ -216,11 +215,9 @@ class AMER_Modi(BaseModel):
 
             ################### Graph Attetion 处理位点 ################################
             # 上下文信息
-            context_moments = torch.arange(seg_len[i])
-            context_moments = context_moments[max(0, target_moment - self.context_length): target_moment]
-            kecr_V = self.g_att_v(C_v[context_moments], concept_lengths_v[context_moments], C_v[target_moment], concept_lengths_v[target_moment])
-            kecr_A = self.g_att_a(C_a[context_moments], concept_lengths_a[context_moments], C_a[target_moment], concept_lengths_a[target_moment])
-            kecr_T = self.g_att_t(C_t[context_moments], concept_lengths_t[context_moments], C_t[target_moment], concept_lengths_t[target_moment])
+            kecr_V = self.g_att_v(C_v[i], concept_lengths_v[i]) # seqlen, dim_representation
+            kecr_A = self.g_att_a(C_a[i], concept_lengths_a[i]) # seqlen, dim_representation
+            kecr_T = self.g_att_t(C_t[i], concept_lengths_t[i]) # seqlen, dim_representation 
             ###########################################################################
 
             # 特征的尺寸都是统一的2 De
@@ -233,11 +230,13 @@ class AMER_Modi(BaseModel):
             mask_A = M_a[i, : seq_lengths[i]].reshape((seg_len[i], n_c[i])) # seq_len, n_c
             mask_T = M_t[i, : seq_lengths[i]].reshape((seg_len[i], n_c[i])) # seq_len, n_c
 
+            #################################
             # Concat with personality embedding 个性化人物特征拼接，知识特征插入位点
-            inp_V = torch.cat([inp_V, inp_P], dim=2) # seq_len, n_c, 2 * dim_feature
-            inp_A = torch.cat([inp_A, inp_P], dim=2) # seq_len, n_c, 2 * dim_feature
-            inp_T = torch.cat([inp_T, inp_P], dim=2) # seq_len, n_c, 2 * dim_feature
-
+            inp_V = torch.cat([inp_V, kecr_V.unsqueeze(1).expand(-1, inp_V.size(1), -1), inp_P], dim=2) # seq_len, n_c, 2 * dim_feature + dim_representation
+            inp_A = torch.cat([inp_A, kecr_A.unsqueeze(1).expand(-1, inp_A.size(1), -1), inp_P], dim=2) # seq_len, n_c, 2 * dim_feature + dim_representation
+            inp_T = torch.cat([inp_T, kecr_T.unsqueeze(1).expand(-1, inp_T.size(1), -1), inp_P], dim=2) # seq_len, n_c, 2 * dim_feature + dim_representation
+            #################################
+            
             U = []
 
             for k in range(n_c[i]):

@@ -1,7 +1,7 @@
 import torch
 import os
 from base import BaseFeatureExtractor
-from utils import read_json
+from utils import read_json, convert_examples_to_ids
 
 
 class VisualFeatureExtractor(BaseFeatureExtractor):
@@ -18,6 +18,7 @@ class VisualFeatureExtractor(BaseFeatureExtractor):
         self.faces_concepts = read_json(config['visual']['faces_concepts_file'])
         self.obj_concepts = read_json(config['visual']['obj_concepts_file'])
         self.action_concepts = read_json(config['visual']['action_concepts_file'])
+        self.concepts2id = None
         ##################
         self.feature_dim = config['visual']['dim_env'] + config['visual']['dim_obj'] + config['visual']['dim_face']
         self.missing_tensor = torch.zeros((self.feature_dim))
@@ -71,8 +72,9 @@ class VisualFeatureExtractor(BaseFeatureExtractor):
                     else:
                         ret.append(self.missing_tensor) 
                         ret_valid.append(0) 
-                        
-                ret_concepts.append(self.concepts[index] if index in self.features else []) # seqlen      
+                concepts = list(set(self.faces_concepts[index] + self.action_concepts[index] + self.obj_concepts[index])) if index in self.faces_concepts else []
+                # if "drawing" in concepts: print(index)
+                ret_concepts.append(torch.LongTensor(convert_examples_to_ids(concepts, self.concepts2id))) # seqlen      
             # for character in on_characters:
             #     for ii in range(len(seg_start)):
             #         begin_sec, end_sec = seg_start[ii] - overall_start, seg_end[ii] - overall_start
@@ -108,11 +110,12 @@ class VisualFeatureExtractor(BaseFeatureExtractor):
             ret = torch.stack(ret, dim=0) # seqlen * n_c, dim_feature_v
             ret_valid = torch.tensor(ret_valid, dtype=torch.int8) # seqlen * n_c
             # ret_concepts = convert_examples_to_ids(ret_concepts, self.concept2id) # seqlen
+
             return ret, ret_valid, ret_concepts
         else:
 
             return torch.zeros((len(on_characters) * len(seg_start), self.feature_dim)),\
                 torch.zeros(len(on_characters) * len(seg_start), dtype=torch.int8),\
-                [[] for _ in range(len(seg_start))]
+                [torch.LongTensor(0) for _ in range(len(seg_start))]
 
 

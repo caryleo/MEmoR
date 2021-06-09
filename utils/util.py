@@ -132,7 +132,13 @@ def build_vocab(config, modal):
 
     words = set()
     for _, items in concepts.items():
-        words.union(items)
+        if modal == "audio":
+            words = words.union([items])
+        else:
+            words = words.union(items)
+
+    # if modal == "audio":
+    #     print(words)
 
     words = list(words)
 
@@ -140,9 +146,11 @@ def build_vocab(config, modal):
         word2id[word] = index
         id2word[index] = word
 
+    # assert "drawing" in word2id
+
     return word2id, id2word
 
-def build_kb(concept2id, config):
+def build_kb(concept2id, config, modal):
     # 原始实现，加载处理好的conceptNet还有NRC（或者SenticNet）根据标签空间构造矩阵
     # Calculate edge matrix
     conceptnet = load_pickle(config["knowledge"]["conceptnet_file"])
@@ -156,7 +164,7 @@ def build_kb(concept2id, config):
 
     kb_percentage = config["knowledge"]["kb_percentage"]
     if kb_percentage > 0: # 参考原始实现，给定一定的随机采样比例
-            print("Keeping {0}% KB concepts...".format(kb_percentage * 100))
+            print("Keeping {0}% KB {1} concepts...".format(kb_percentage * 100, modal))
             edge_matrix = edge_matrix * (np.random.random((vocab_size,vocab_size)) < kb_percentage).astype(float)
     edge_matrix = torch.FloatTensor(edge_matrix)
     edge_matrix[torch.arange(vocab_size), torch.arange(vocab_size)] = 1
@@ -173,16 +181,21 @@ def build_kb(concept2id, config):
 
 
 def convert_examples_to_ids(concepts_list, concept2id):
+    # print(len(concepts_list))
     concepts_ids_list = []
-    for concepts in concepts_list:
-        concepts_ids_list.append([concept2id[concept] for concept in concepts])
+    if type(concepts_list) is list:
+        for concept in concepts_list:
+            concepts_ids_list.append(concept2id[concept])
+            # print(len(concepts_ids_list), concepts_ids_list)
+    else:
+        concepts_ids_list.append(concept2id[concepts_list])
     return concepts_ids_list
 
 
 
 # conceptnet
-def get_concept_embedding(concept2id, config):
-    vectors = Magnitude(config["knowledge"]["embedding_file"])
+def get_concept_embedding(concept2id, config, vectors):
+    # vectors = Magnitude(config["knowledge"]["embedding_file"])
     # 这里的实现和原始实现稍许不一样，如果对应不上会直接炸
     pretrained_word_embedding = np.zeros((len(concept2id), config["knowledge"]["embedding_dim"]))
     for word, index in concept2id.items():
@@ -196,7 +209,7 @@ def get_concept_embedding(concept2id, config):
         else:
             pretrained_word_embedding[index] = vectors.query(word)
 
-        assert pretrained_word_embedding[index].shape[1] == config["knowledge"]["embedding_dim"]
+        assert pretrained_word_embedding[index].shape[0] == config["knowledge"]["embedding_dim"]
     return pretrained_word_embedding
 
 
