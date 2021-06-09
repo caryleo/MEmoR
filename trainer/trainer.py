@@ -8,6 +8,14 @@ class MEmoRTrainer(BaseTrainer):
     def __init__(self, model, criterion, metric_ftns, config, data_loader,
                  valid_data_loader=None, len_epoch=None):
         super().__init__(model, criterion, metric_ftns, config)
+
+        ##############
+        # 要在这里调整图注意力，不然进去之后封装就会变得复杂
+        self.model.g_att_v.init_params(data_loader.dataset.edge_matrix_v, data_loader.dataset.affectiveness_v, data_loader.dataset.embedding_concept_v)
+        self.model.g_att_a.init_params(data_loader.dataset.edge_matrix_a, data_loader.dataset.affectiveness_a, data_loader.dataset.embedding_concept_a)
+        self.model.g_att_t.init_params(data_loader.dataset.edge_matrix_t, data_loader.dataset.affectiveness_t, data_loader.dataset.embedding_concept_t)
+        ##############
+
         self.config = config
         self.data_loader = data_loader
         if len_epoch is None:
@@ -33,13 +41,20 @@ class MEmoRTrainer(BaseTrainer):
         """
         self.model.train()
         self.train_metrics.reset()
-        for batch_idx, data in enumerate(self.data_loader):          
-            target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, target_loc, umask, seg_len, n_c = [d.to(self.device) for d in data]
+        for batch_idx, data in enumerate(self.data_loader): 
+            ###########################
+            # 这里的接口也调整一下         
+            target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, C_vl, C_al, C_tl, target_loc, umask, seg_len, n_c = [d.to(self.device) for d in data]
+            ###########################
             
             self.optimizer.zero_grad()
+            # 这里计算的是各个序列的长度
             seq_lengths = [(umask[j] == 1).nonzero().tolist()[-1][0] + 1 for j in range(len(umask))]
             
-            output = self.model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, seq_lengths, target_loc, seg_len, n_c)
+            ###########################
+            # 这里的接口也调整一下
+            output = self.model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, C_vl.tolist(), C_al.tolist(), C_tl.tolist(), target_loc, seq_lengths, seg_len, n_c)
+            ###########################
             assert output.shape[0] == target.shape[0]
             target = target.squeeze(1)
             loss = self.criterion(output, target)
@@ -84,10 +99,18 @@ class MEmoRTrainer(BaseTrainer):
         outputs, targets= [], []
         with torch.no_grad():
             for batch_idx, data in enumerate(self.valid_data_loader):
-                target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, target_loc, umask, seg_len, n_c = [d.to(self.device) for d in data]
+                ###########################
+                # 这里的接口也调整一下
+                target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, target_loc, umask, seg_len, n_c = [d.to(self.device) for d in data]
+                ###########################
+
+                # 这里计算的是各个序列的长度
                 seq_lengths = [(umask[j] == 1).nonzero().tolist()[-1][0] + 1 for j in range(len(umask))]
             
-                output = self.model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, seq_lengths, target_loc, seg_len, n_c)
+                ###########################
+                # 这里的接口也调整一下
+                output = self.model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, target_loc, seq_lengths, seg_len, n_c)
+                ###########################
                 target = target.squeeze(1)
                 loss = self.criterion(output, target)
                 

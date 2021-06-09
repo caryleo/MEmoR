@@ -22,6 +22,7 @@ def main(config):
     data_loader = create_dataloader(config)
     valid_data_loader = data_loader.split_validation()
 
+    test = data_loader.dataset.edge_matrix_v
     # build model architecture, then print to console
     model = create_model(config)
 
