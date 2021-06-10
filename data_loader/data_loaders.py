@@ -60,7 +60,7 @@ class MEmoRDataset(data.Dataset):
         self.personality_features = []
 
         ###################################
-        print("Processing Vocabulary")
+        print("Processing Concepts")
         self.concept2id_v, self.id2concept_v = build_vocab(config, 'visual')
         self.concept2id_a, self.id2concept_a = build_vocab(config, 'audio')
         self.concept2id_t, self.id2concept_t = build_vocab(config, 'text')
@@ -68,6 +68,8 @@ class MEmoRDataset(data.Dataset):
         vfe.concepts2id = self.concept2id_v
         afe.concepts2id = self.concept2id_a
         tfe.concepts2id = self.concept2id_t
+
+        # print(self.concept2id_t)
 
         # print(afe.concepts2id)
 
@@ -90,6 +92,7 @@ class MEmoRDataset(data.Dataset):
         
         print('Processing Samples...')
         for jj, anno in enumerate(tqdm(annos)):
+            # if jj >= 300: break
             clip = anno['clip']
             target_character = anno['character']
             target_moment = anno['moment']
@@ -133,7 +136,7 @@ class MEmoRDataset(data.Dataset):
             self.personality_features.append(torch.stack(personality_seq)) # num_anno, seqlen * n_c, dim_features_p
             self.charcaters_seq.append(torch.tensor(charcaters_seq)) # num_anno, seqlen * n_c, some
             self.time_seq.append(torch.tensor(time_seq)) # num_anno, seqlen * n_c, some
-            self.target_loc.append(torch.tensor(target_loc, dtype=torch.int8)) # snum_anno, eqlen * n_c, some
+            self.target_loc.append(torch.tensor(target_loc, dtype=torch.int8)) # num_anno, seqlen * n_c
             self.visual_features.append(vf) # num_anno, seqlen * n_c, dim_features_v
             self.audio_features.append(af) # num_anno, seqlen * n_c, dim_features_a
             self.text_features.append(tf) # num_anno, seqlen * n_c, dim_features_t
@@ -151,6 +154,8 @@ class MEmoRDataset(data.Dataset):
                 new[:concepts.size(0)] = concepts[:]
                 vc_new.append(new)
             self.visual_concepts_lengths.append(torch.tensor(lengths, dtype=torch.int8)) # num_anno, seqlen
+
+            # assert len(vc_new) == len(vc) and len(vc_new) == len(data[clip]['seg_start'])
 
             ac_new = list()
             lengths = list()
@@ -172,6 +177,7 @@ class MEmoRDataset(data.Dataset):
             self.text_concepts_lengths.append(torch.tensor(lengths, dtype=torch.int8)) # num_anno, seqlen
 
             self.visual_concepts.append(torch.stack(vc_new, dim=0)) # num_anno, seqlen, max_num_concept
+            # assert torch.stack(vc_new, dim=0).size(0) == len(data[clip]['seg_start'])
             self.audio_concepts.append(torch.stack(ac_new, dim=0)) # num_anno, seqlen, max_num_concept
             self.text_concepts.append(torch.stack(tc_new, dim=0)) # num_anno, seqlen, max_num_concept
             #######################################################
@@ -182,6 +188,7 @@ class MEmoRDataset(data.Dataset):
     def __getitem__(self, index):
         ########################################
         # 增加了对应的输出调整，按照样本对应
+        # print("GETITEM", self.visual_concepts[index].size())
         return torch.tensor([self.labels[index]]), \
             self.visual_features[index], \
             self.audio_features[index], \
@@ -256,6 +263,7 @@ class MEmoRDataLoader(BaseDataLoader):
             len_valid = int(self.n_samples * split)
 
         ##################
+        # 制定了测试文件（valtest）就将其作为验证集，否则将训练集分拆出测试集
         if self.val_file:
             valid_idx = self.valid_idx
             train_idx = np.array([idx for idx in idx_full if idx not in valid_idx])

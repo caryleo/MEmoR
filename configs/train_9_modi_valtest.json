@@ -1,26 +1,34 @@
 {
-    "name": "Train_9_modified",
-    "message":"Our Model KE",
+    "name": "Train_9_modi",
+    "message":"MEmoR modified KE",
     "anno_file": "data/anno.json",
     "data_file": "data/data.json",
     "id_file": "data/train_id.txt",
+    "val_id_file": "data/test_id.txt",
     "emo_type": "primary",
     "speakers": ["sheldon", "leonard", "howard", "rajesh", "penny", "bernadette", "amy", "others"],
     "audio": {
         "feature_file": "data/features/audio_features.json",
+        "concepts_file": "data/features/audio_concepts.json",
+        "concepts_aug_file": "data/features/audio_concepts_aug.json",
         "feature_dim": 6373
     },
     "text": {
         "bert_model_name": "bert-large-uncased",
         "feature_file": "data/features/text_features.json",
+        "concepts_file": "data/features/text_concepts.json",
         "feature_dim": 1024
     },
     "visual": {
         "frame_path": "data/clips_frames",
         "faces_feature_dir": "data/features/visual_features/face_features",
         "faces_names_dir": "data/features/visual_features/face_names",
+        "faces_concepts_file": "data/features/visual_features/face_concepts.json",
         "obj_feature_dir": "data/features/visual_features/object_features",
+        "obj_concepts_file": "data/features/visual_features/object_concepts.json",
         "env_feature_dir": "data/features/visual_features/environment_features",
+        "action_concepts_file": "data/features/visual_features/action_concepts.json",
+        "action_feature_file": "data/features/visual_features/action_feature.json",
         "dim_env": 2048,
         "dim_obj": 1230,
         "dim_face": 1024
@@ -29,6 +37,14 @@
         "used":true,
         "anno_file": "data/features/character_features.csv",
         "feature_dim": 118
+    },
+    "knowledge": {
+        "embedding_file": "data/embedding/glove.840B.300d.magnitude",
+        "embedding_dim": 300,
+        "conceptnet_file": "data/kb/conceptnet_base.pkl",
+        "affectiveness_file": "data/kb/NRC_base.pkl",
+        "kb_percentage": 1.0
+        
     },
     "n_gpu": 1,
     "data_loader": {
@@ -42,9 +58,12 @@
         }
     },
     "model": {
-        "type": "AMER",
+        "type": "AMER_Modi",
         "args":{
-            "D_e": 128
+            "D_e": 128,
+            "graph_attention_weight": -1,
+            "concentrator_factor": 1,
+            "context_length": 2
         }
     },
     "optimizer": {
