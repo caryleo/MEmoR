@@ -21,16 +21,18 @@ class MEmoRDataset(data.Dataset):
         ##################################################
         # 作者将这部分代码注释掉了，就是用是否只用训练数据集进行训练
         # 在train_test模式下，所有的数据都应该预先处理
-        ids = []
-        tmp_annos = []
-        with open(config['id_file']) as fin:
-            for line in fin.readlines():
-                ids.append(int(line.strip()))
-        
-        for jj, anno in enumerate(annos):
-            if jj in ids:
-                tmp_annos.append(anno)
-        annos = tmp_annos
+        if not config["val_file"]:
+            print("Caution! Loading Samples from {}".format(config['id_file']))
+            ids = []
+            tmp_annos = []
+            with open(config['id_file']) as fin:
+                for line in fin.readlines():
+                    ids.append(int(line.strip()))
+            
+            for jj, anno in enumerate(annos):
+                if jj in ids:
+                    tmp_annos.append(anno)
+            annos = tmp_annos
         ##################################################
             
         emo_num = 9 if config['emo_type'] == 'primary' else 14
@@ -73,9 +75,9 @@ class MEmoRDataset(data.Dataset):
 
         # print(afe.concepts2id)
 
-        config["visual"]["concept_size"] = len(self.concept2id_v)
-        config["audio"]["concept_size"] = len(self.concept2id_a)
-        config["text"]["concept_size"] = len(self.concept2id_t)
+        assert config["visual"]["concept_size"] == len(self.concept2id_v), "the size of concept in config ({}) mismatches the size captured from data ({})".format(config["visual"]["concept_size"], len(self.concept2id_v))
+        assert config["audio"]["concept_size"] == len(self.concept2id_a), "the size of concept in config ({}) mismatches the size captured from data ({})".format(config["audio"]["concept_size"], len(self.concept2id_a))
+        assert config["text"]["concept_size"] == len(self.concept2id_t), "the size of concept in config ({}) mismatches the size captured from data ({})".format(config["text"]["concept_size"], len(self.concept2id_t))
         ###################################
 
         ###################################
@@ -234,7 +236,7 @@ class MEmoRDataLoader(BaseDataLoader):
         #####################################
         ## 修改：将验证集强制为指定文件
         self.val_file = False
-        if config.val_file:
+        if config["val_file"]:
             self.val_file = True
             print('Caution! Loading', config['val_id_file'], 'as validation set')
             test_list = list()

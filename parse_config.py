@@ -23,7 +23,6 @@ class ConfigParser:
         self._config = _update_config(config, modification)
         self.resume = resume
 
-        self.val_file = False# True if 'val_id_file' in config else False
         # set save_dir where trained model and log will be saved.
         save_dir = Path(self.config['trainer']['save_dir'])
 
@@ -63,7 +62,6 @@ class ConfigParser:
 
         if args.device is not None:
             os.environ["CUDA_VISIBLE_DEVICES"] = args.device
-            print("Visible CUDA Devices", os.environ["CUDA_VISIBLE_DEVICES"])
         if args.resume is not None:
             resume = Path(args.resume)
             cfg_fname = resume.parent / 'config.json'

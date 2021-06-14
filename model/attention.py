@@ -4,6 +4,83 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from utils.util import clones
+
+def attention(query, key, value, mask=None, dropout=None):
+    """
+    Compute scaled dot product self attention
+        query: (batch_size, h, seq_len, d_k), seq_len can be either src_seq_len or tgt_seq_len
+        key: (batch_size, h, seq_len, d_k), seq_len in key, value and mask are the same
+        value: (batch_size, h, seq_len, d_k)
+        mask: (batch_size, 1, 1, seq_len) or (batch_size, 1, tgt_seq_len, tgt_seq_len) (legacy)
+    """
+    # if print_dims:
+    #     print("{0}: query: type: {1}, shape: {2}".format("attention func", query.type(), query.shape))
+    #     print("{0}: key: type: {1}, shape: {2}".format("attention func", key.type(), key.shape))
+    #     print("{0}: value: type: {1}, shape: {2}".format("attention func", value.type(), value.shape))
+    #     print("{0}: mask: type: {1}, shape: {2}".format("attention func", mask.type(), mask.shape))
+    d_k = query.size(-1)
+    
+    # h, some, d_k
+    
+    # scores: (batch_size, h, seq_len, seq_len) for self_attn, (batch_size, h, tgt_seq_len, src_seq_len) for src_attn
+    scores = torch.matmul(query, key.transpose(-2, -1)/math.sqrt(d_k)) # h, some, some
+    # print(query.shape, key.shape, mask.shape, scores.shape)
+
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    p_attn = F.softmax(scores, dim=-1)
+    if dropout is not None:
+        p_attn = dropout(p_attn)
+    return torch.matmul(p_attn, value), p_attn # h, some, d_k
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, h, d_model, dropout=0.1):
+        super(MultiHeadAttention, self).__init__()
+        assert d_model % h == 0
+        self.d_k = d_model // h
+        self.h = h
+        self.linears = clones(nn.Linear(d_model, d_model), 4)
+        self.attn = None
+        self.dropout = nn.Dropout(p=dropout)
+        self.a = nn.Parameter(torch.Tensor([1]))
+        self.b = nn.Parameter(torch.Tensor([1]))
+        
+    def forward(self, query, key, value, mask=None):
+        """
+            query: (batch_size, seq_len, d_model), seq_len can be either src_seq_len or tgt_seq_len
+            key: (batch_size, seq_len, d_model), seq_len in key, value and mask are the same
+            value: (batch_size, seq_len, d_model)
+            mask: (batch_size, 1, seq_len) or (batch_size, tgt_seq_len, tgt_seq_len) (legacy)
+        """
+        # if print_dims:
+        #     print("{0}: query: type: {1}, shape: {2}".format(self.__class__.__name__, query.type(), query.shape))
+        #     print("{0}: key: type: {1}, shape: {2}".format(self.__class__.__name__, key.type(), key.shape))
+        #     print("{0}: value: type: {1}, shape: {2}".format(self.__class__.__name__, value.type(), value.shape))
+        #     print("{0}: mask: type: {1}, shape: {2}".format(self.__class__.__name__, mask.type(), mask.shape))
+
+        # some, 2 * dim_feature + dim_representation
+        if mask is not None:
+            mask = mask.unsqueeze(1)
+        # nbatches = query.size(0)
+        
+        # 1) Do all linear projections in batch from d_model to (h, d_k)
+        query, key, value = [l(x).view(-1, self.h, self.d_k).transpose(0, 1) # num_head, some, d_k
+            for l, x in zip(self.linears, (query, key, value))]
+        
+        # 2) Apply attention on all the projected vectors in batch
+        x, self.attn = attention(query, key, value, mask=mask, dropout=self.dropout) # (batch_size, h, seq_len, d_k)  # h, some, d_k
+        # if print_dims:
+        #     print("{0}: x (after attention): type: {1}, shape: {2}".format(self.__class__.__name__, x.type(), x.shape))
+
+        # 3) Concatenate and apply a final linear
+        x = x.transpose(0, 1).contiguous().view(-1, self.h * self.d_k) # some, 2 * dim_feature + dim_representation
+        x = self.linears[-1](x) # (batch_size, seq_len, d_model)
+        # if print_dims:
+        #     print("{0}: x (after concatenation and linear): type: {1}, shape: {2}".format(self.__class__.__name__, x.type(), x.shape))
+        return x, self.attn
+
+
 class ScaledDotProductAttention(nn.Module):
     """ Scaled Dot-Product Attention """
     def __init__(self, temperature, attn_dropout=0.1):
@@ -12,7 +89,7 @@ class ScaledDotProductAttention(nn.Module):
         self.dropout = nn.Dropout(attn_dropout)
 
     def forward(self, q, k, v, mask=None):
-        # some, 2 * dim_feature
+        # some, 2 * dim_feature + dim_representation
         attn = torch.matmul(q / self.temperature, k.transpose(0, 1)) # some, some
 
         if mask is not None:
@@ -36,6 +113,9 @@ class GraphAttention(nn.Module):
         # self.attn_concept = ScaledDotProductAttention((2 * self.embed_size) ** 0.5, attn_dropout=0)
         self.embed = nn.Embedding(vocab_size, config["knowledge"]["embedding_dim"])
         self.empty_tensor = torch.zeros(self.embed_size)
+        self.edge_matrix = None
+        self.affectiveness = None
+        self._lambda = None
         ####################
 
     def init_params(self, edge_matrix=None, affectiveness=None, embedding_concept=None, device=None):
@@ -46,7 +126,7 @@ class GraphAttention(nn.Module):
         self.affectiveness = affectiveness.to(device)
         
         if self.GAW is not None:
-            self._lambda = self.GAW.to(device)
+            self._lambda = nn.Parameter(torch.full((self.vocab_size,), self.GAW)).to(device)
         else:
             self._lambda = nn.Parameter(torch.full((self.vocab_size,), 0.5)).to(device)
 

@@ -7,10 +7,12 @@ import pickle
 from pathlib import Path
 from itertools import repeat
 from collections import OrderedDict
+import copy
+
 import torch
+import torch.nn as nn
 from torch.nn.functional import embedding
 from torch.nn.modules import module
-
 from torch.utils.data import dataloader
 from pymagnitude import Magnitude
 from nltk.corpus import stopwords
@@ -250,5 +252,11 @@ def remove_KB_duplicates(conceptnet):
                 filtered_conceptnet[k].add((c, w))
                 concepts.add(c)
     return filtered_conceptnet
+
+def clones(module, N):
+    """
+    Produce N identical layers
+    """
+    return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 #####################################################

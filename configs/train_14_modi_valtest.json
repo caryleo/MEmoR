@@ -1,22 +1,27 @@
 {
-    "name": "Train_9_modi",
-    "message":"MEmoR modified KE",
+    "name": "Train_14_modi_valtest_2020",
+    "message":"MEmoR modified KE 200 0.4",
+    "mode": "train",
     "anno_file": "data/anno.json",
     "data_file": "data/data.json",
     "id_file": "data/train_id.txt",
-    "emo_type": "primary",
+    "val_file": true,
+    "val_id_file": "data/test_id.txt",
+    "emo_type": "fine_grained",
     "speakers": ["sheldon", "leonard", "howard", "rajesh", "penny", "bernadette", "amy", "others"],
     "audio": {
         "feature_file": "data/features/audio_features.json",
         "concepts_file": "data/features/audio_concepts.json",
         "concepts_aug_file": "data/features/audio_concepts_aug.json",
-        "feature_dim": 6373
+        "feature_dim": 6373,
+        "concept_size": 9
     },
     "text": {
         "bert_model_name": "bert-large-uncased",
         "feature_file": "data/features/text_features.json",
         "concepts_file": "data/features/text_concepts.json",
-        "feature_dim": 1024
+        "feature_dim": 1024,
+        "concept_size": 10921
     },
     "visual": {
         "frame_path": "data/clips_frames",
@@ -30,7 +35,8 @@
         "action_feature_file": "data/features/visual_features/action_feature.json",
         "dim_env": 2048,
         "dim_obj": 1230,
-        "dim_face": 1024
+        "dim_face": 1024,
+        "concept_size": 829
     },
     "personality": {
         "used":true,
@@ -38,8 +44,8 @@
         "feature_dim": 118
     },
     "knowledge": {
-        "embedding_file": "data/embedding/glove.840B.300d.magnitude",
-        "embedding_dim": 300,
+        "embedding_file": "data/embedding/glove.twitter.27B.200d.magnitude",
+        "embedding_dim": 200,
         "conceptnet_file": "data/kb/conceptnet_base.pkl",
         "affectiveness_file": "data/kb/NRC_base.pkl",
         "kb_percentage": 1.0
@@ -60,7 +66,7 @@
         "type": "AMER_Modi",
         "args":{
             "D_e": 128,
-            "graph_attention_weight": -1,
+            "graph_attention_weight": 0.4,
             "concentrator_factor": 1,
             "context_length": 2
         }

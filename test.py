@@ -25,18 +25,25 @@ def main(config):
     model = model.to(device)
     model.eval()
 
-
     metric_fns = [getattr(module_metric, met) for met in config['metrics']]
     loss_fn = getattr(module_loss, config['loss'])
     total_loss = 0.0
     total_metrics = torch.zeros(len(metric_fns))
 
     data_loader = create_dataloader(config)
+
+    model.g_att_v.init_params(data_loader.dataset.edge_matrix_v, data_loader.dataset.affectiveness_v, data_loader.dataset.embedding_concept_v, model.device)
+    model.g_att_a.init_params(data_loader.dataset.edge_matrix_a, data_loader.dataset.affectiveness_a, data_loader.dataset.embedding_concept_a, model.device)
+    model.g_att_t.init_params(data_loader.dataset.edge_matrix_t, data_loader.dataset.affectiveness_t, data_loader.dataset.embedding_concept_t, model.device)
+
     with torch.no_grad():
         for i, data in enumerate(tqdm(data_loader)):
-            target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, target_loc, umask, seg_len, n_c = [d.to(device) for d in data]
-            seq_lengths = [(umask[j] == 1).nonzero().tolist()[-1][0] + 1 for j in range(len(umask))]
-            output = model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, seq_lengths, target_loc, seg_len, n_c)
+            # target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, target_loc, umask, seg_len, n_c = [d.to(device) for d in data]
+            # seq_lengths = [(umask[j] == 1).nonzero().tolist()[-1][0] + 1 for j in range(len(umask))]
+            # output = model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, seq_lengths, target_loc, seg_len, n_c)
+            target, U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, C_vl, C_al, C_tl, target_loc, umask, seg_len, n_c = [d.to(device) for d in data]
+            seq_lengths = [(umask[j] == 1).nonzero(as_tuple=False).tolist()[-1][0] + 1 for j in range(len(umask))]
+            output = model(U_v, U_a, U_t, U_p, M_v, M_a, M_t, C_v, C_a, C_t, C_vl.tolist(), C_al.tolist(), C_tl.tolist(), target_loc, seq_lengths, seg_len, n_c)
             target = target.squeeze(1)
             loss = loss_fn(output, target)
             batch_size = U_v.shape[0]
