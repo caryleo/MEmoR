@@ -1,14 +1,25 @@
 import argparse
 import torch
 from tqdm import tqdm
+import numpy as np
+
 import model.metric as module_metric
 import model.loss as module_loss
 from parse_config import ConfigParser
 from utils.util import create_model, create_dataloader
 
+# 似乎和这一段设置种子的代码有关系，原始的测试波动性很大
+SEED = 125
+torch.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(SEED)
 
 def main(config):
     logger = config.get_logger('test')
+
+
+
     model = create_model(config)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

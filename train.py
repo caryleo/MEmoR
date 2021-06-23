@@ -7,15 +7,17 @@ import model.metric as module_metric
 import torch
 from utils.util import create_model, create_dataloader, create_trainer
 
+# fix random seeds for reproducibility
+SEED = 125
+torch.manual_seed(SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(SEED)
+
 def main(config):
     logger = config.get_logger('train')
 
-    # fix random seeds for reproducibility
-    SEED = 125
-    torch.manual_seed(SEED)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    np.random.seed(SEED)
+
 
     # setup data_loader instances
     data_loader = create_dataloader(config)

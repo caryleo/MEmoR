@@ -1,13 +1,12 @@
 {
-    "name": "Train_9_modi_valtest",
-    "message":"MEmoR modified KE 200 0.4",
-    "mode": "train",
+    "name": "Test_9_modi_glove_300_0.4_valtest",
+    "message":"MEmoR modified KE 300 0.4",
+    "mode": "test",
     "anno_file": "data/anno.json",
     "data_file": "data/data.json",
-    "id_file": "data/train_id.txt",
-    "val_file": true,
-    "val_id_file": "data/test_id.txt",
+    "id_file": "data/test_id.txt",
     "emo_type": "primary",
+    "val_file": false,
     "speakers": ["sheldon", "leonard", "howard", "rajesh", "penny", "bernadette", "amy", "others"],
     "audio": {
         "feature_file": "data/features/audio_features.json",
@@ -44,8 +43,8 @@
         "feature_dim": 118
     },
     "knowledge": {
-        "embedding_file": "data/embedding/glove.twitter.27B.200d.magnitude",
-        "embedding_dim": 200,
+        "embedding_file": "data/embedding/glove.840B.300d.magnitude",
+        "embedding_dim": 300,
         "conceptnet_file": "data/kb/conceptnet_base.pkl",
         "affectiveness_file": "data/kb/NRC_base.pkl",
         "kb_percentage": 1.0
@@ -56,8 +55,8 @@
         "type": "MEmoRDataLoader",
         "args":{
             "batch_size": 8,
-            "shuffle": true,
-            "validation_split": 0.2,
+            "shuffle": false,
+            "validation_split": 0.0,
             "num_workers": 2,
             "seed": 2020
         }
@@ -71,38 +70,13 @@
             "context_length": 2
         }
     },
-    "optimizer": {
-        "type": "Adam",
-        "args":{
-            "lr": 5e-5,
-            "weight_decay": 0,
-            "amsgrad": true
-        }
-    },
     "loss": "nll_loss",
     "metrics": [
         "accuracy",
+        "micro_f1",
         "macro_f1",
-        "weighted_f1"
-    ],
-    "lr_scheduler": {
-        "type": "StepLR",
-        "args": {
-            "step_size": 50,
-            "gamma": 0.9
-        }
-    },
-    "trainer": {
-        "type": "MEmoRTrainer",
-        "epochs": 1000,
+        "weighted_f1",
+        "top_k_acc"
+    ]
 
-        "save_dir": "saved/",
-        "save_period": 50,
-        "verbosity": 2,
-        
-        "monitor": "max val_accuracy",
-        "early_stop": 50,
-
-        "tensorboard": true
-    }
 }

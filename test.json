@@ -4,7 +4,7 @@
     "anno_file": "data/anno.json",
     "data_file": "data/data.json",
     "id_file": "data/test_id.txt",
-    "emo_type": "fine_grained",
+    "emo_type": "primary",
     "speakers": ["sheldon", "leonard", "howard", "rajesh", "penny", "bernadette", "amy", "others"],
     "audio": {
         "feature_file": "data/features/audio_features.json",
